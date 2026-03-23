@@ -1,0 +1,1 @@
+Command is !smith-menu
