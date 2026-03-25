@@ -1,0 +1,2039 @@
+var StrongholdSmithy = StrongholdSmithy || (function () {
+    'use strict';
+
+    var SCRIPT = 'StrongholdSmithy';
+    var VERSION = '0.3.3';
+    var STATE = 'STRONGHOLD_SMITHY';
+
+    var CONFIG = {
+        coinAttrs: {
+            gp: 'gp',
+            sp: 'sp',
+            cp: 'cp'
+        },
+        reactionAttr: 'reactionbonus',
+        monthlyBlacksmithGp: 30,
+        helperMonthlyGp: {
+            leatherworker: 3,
+            tailor: 3,
+            woodworker: 2
+        },
+        race: {
+            human: { efficiency: 1, skillBonus: 0 },
+            dwarf: { efficiency: 3, skillBonus: 25 },
+            gnome: { efficiency: 2, skillBonus: 10 }
+        },
+        colors: {
+            panelBg: '#111111',
+            panelBorder: '#666666',
+            text: '#f0f0f0',
+            subtext: '#cccccc',
+            primaryBg: '#1d5f9b',
+            primaryBorder: '#53a3e0',
+            reportBg: '#245b2a',
+            reportBorder: '#56b862',
+            warnBg: '#9b6b00',
+            warnBorder: '#d6b24d',
+            dangerBg: '#8b1d1d',
+            dangerBorder: '#d96a6a',
+            buttonBg: '#000000',
+            buttonBorder: '#ff2a00',
+            buttonText: '#ff4500'
+        },
+        randomNames: [
+            'Aldric', 'Bennit', 'Corvin', 'Darrik', 'Edric', 'Farlan', 'Garron', 'Halwen', 'Ivor', 'Joric',
+            'Kellin', 'Loras', 'Merric', 'Naren', 'Orin', 'Perrin', 'Quint', 'Roder', 'Soren', 'Tarin',
+            'Ulric', 'Varric', 'Wendell', 'Yorik', 'Zaren', 'Brom', 'Dain', 'Hob', 'Milo', 'Thane'
+        ],
+        haggleFailComments: [
+            'That is my price, and it is a fair one.',
+            'You are pressing too hard for too little.',
+            'I have apprentices to feed and coal to buy.',
+            'The iron does not shape itself for free.',
+            'You can try elsewhere if the price bites.',
+            'Good work costs good coin.',
+            'I will not be talked down on honest labor.',
+            'If you want cheap, buy poor work.',
+            'My forge stays hot whether you pay or not.',
+            'That is already closer than I like to cut it.',
+            'I have better buyers than beggars.',
+            'A careful job takes time and money.',
+            'You are haggling with the wrong smith today.'
+        ],
+        products: {
+            ringmail: {
+                label: 'Ring Mail',
+                quantityBase: 1,
+                baseDays: 20,
+                basePriceGp: 30,
+                skillMin: 1,
+                category: 'armor',
+                support: [],
+                leather: false,
+                complexity: 2,
+                notes: 'Forge-related metal armor.'
+            },
+            scalemail: {
+                label: 'Scale Mail',
+                quantityBase: 1,
+                baseDays: 30,
+                basePriceGp: 45,
+                skillMin: 1,
+                category: 'armor',
+                support: [],
+                leather: false,
+                complexity: 2,
+                notes: 'Forge-related metal armor.'
+            },
+            splintedmail: {
+                label: 'Splinted Mail',
+                quantityBase: 1,
+                baseDays: 20,
+                basePriceGp: 80,
+                skillMin: 2,
+                category: 'armor',
+                support: [],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related metal armor.'
+            },
+            chainmail: {
+                label: 'Chain Mail',
+                quantityBase: 1,
+                baseDays: 45,
+                basePriceGp: 75,
+                skillMin: 3,
+                category: 'armor',
+                support: [],
+                leather: false,
+                complexity: 4,
+                notes: 'Advanced forge-related metal armor.'
+            },
+            bandedmail: {
+                label: 'Banded Mail',
+                quantityBase: 1,
+                baseDays: 30,
+                basePriceGp: 90,
+                skillMin: 4,
+                category: 'armor',
+                support: [],
+                leather: false,
+                complexity: 4,
+                notes: 'Master-level forge-related metal armor.'
+            },
+            platemail: {
+                label: 'Plate Mail',
+                quantityBase: 1,
+                baseDays: 90,
+                basePriceGp: 400,
+                skillMin: 4,
+                category: 'armor',
+                support: [],
+                leather: false,
+                complexity: 4,
+                notes: 'Master-level forge-related metal armor.'
+            },
+            helmetgreat: {
+                label: 'Helmet, Great',
+                quantityBase: 1,
+                baseDays: 6,
+                basePriceGp: 15,
+                skillMin: 0,
+                category: 'helmet',
+                support: [],
+                leather: false,
+                complexity: 2,
+                notes: 'Forge-related helm.'
+            },
+            helmetsmall: {
+                label: 'Helmet, Small',
+                quantityBase: 1,
+                baseDays: 4,
+                basePriceGp: 10,
+                skillMin: 0,
+                category: 'helmet',
+                support: [],
+                leather: false,
+                complexity: 1,
+                notes: 'Forge-related helm.'
+            },
+            shieldsmall: {
+                label: 'Shield, Small (Metal)',
+                quantityBase: 1,
+                baseDays: 3,
+                basePriceGp: 10,
+                skillMin: 0,
+                category: 'shield',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 1,
+                notes: 'Forge-related metal shield using the established small shield price.'
+            },
+            shieldmedium: {
+                label: 'Shield, Medium (Metal)',
+                quantityBase: 1,
+                baseDays: 4,
+                basePriceGp: 12,
+                skillMin: 0,
+                category: 'shield',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 2,
+                notes: 'Forge-related metal shield priced between the established small and large shield costs.'
+            },
+            shieldlarge: {
+                label: 'Shield, Large (Metal)',
+                quantityBase: 1,
+                baseDays: 5,
+                basePriceGp: 15,
+                skillMin: 0,
+                category: 'shield',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 2,
+                notes: 'Forge-related metal shield using the established large shield price.'
+            },
+            hammer: {
+                label: 'Hammer',
+                quantityBase: 1,
+                baseDays: 2,
+                basePriceGp: 1,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 1,
+                notes: 'Forge-related weapon.'
+            },
+            dart: {
+                label: 'Dart',
+                quantityBase: 1,
+                baseDays: 1,
+                basePriceGp: 0.5,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 1,
+                notes: 'Forge-related missile weapon.'
+            },
+            dagger: {
+                label: 'Dagger and Scabbard',
+                quantityBase: 1,
+                baseDays: 2,
+                basePriceGp: 2,
+                skillMin: 0,
+                category: 'weapon',
+                support: [],
+                leather: false,
+                complexity: 2,
+                notes: 'Forge-related weapon.'
+            },
+            axehand: {
+                label: 'Axe, Hand or Throwing',
+                quantityBase: 1,
+                baseDays: 3,
+                basePriceGp: 1,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 2,
+                notes: 'Forge-related weapon.'
+            },
+            axebattle: {
+                label: 'Axe, Battle',
+                quantityBase: 1,
+                baseDays: 5,
+                basePriceGp: 5,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related weapon.'
+            },
+            javelin: {
+                label: 'Javelin',
+                quantityBase: 1,
+                baseDays: 3,
+                basePriceGp: 1,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 1,
+                notes: 'Quoted as forge-led work; no outside trades required.'
+            },
+            lance: {
+                label: 'Lance',
+                quantityBase: 1,
+                baseDays: 6,
+                basePriceGp: 6,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 2,
+                notes: 'Quoted as forge-led work; no outside trades required.'
+            },
+            macefoot: {
+                label: "Mace, Footman's",
+                quantityBase: 1,
+                baseDays: 5,
+                basePriceGp: 8,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related weapon.'
+            },
+            macehorse: {
+                label: "Mace, Horseman's",
+                quantityBase: 1,
+                baseDays: 4,
+                basePriceGp: 4,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 2,
+                notes: 'Forge-related weapon.'
+            },
+            morningstar: {
+                label: 'Morning Star',
+                quantityBase: 1,
+                baseDays: 7,
+                basePriceGp: 5,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 4,
+                notes: 'Extrapolated from the DMG example rate of five per month.'
+            },
+            spear: {
+                label: 'Spear',
+                quantityBase: 1,
+                baseDays: 3,
+                basePriceGp: 1,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 1,
+                notes: 'Quoted as forge-led work; no outside trades required.'
+            },
+            trident: {
+                label: 'Trident',
+                quantityBase: 1,
+                baseDays: 5,
+                basePriceGp: 4,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 2,
+                notes: 'Forge-related weapon.'
+            },
+            pickmilitaryfoot: {
+                label: "Pick, Military, Footman's",
+                quantityBase: 1,
+                baseDays: 6,
+                basePriceGp: 8,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related weapon.'
+            },
+            pickmilitaryhorse: {
+                label: "Pick, Military, Horseman's",
+                quantityBase: 1,
+                baseDays: 5,
+                basePriceGp: 5,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related weapon.'
+            },
+            flailfoot: {
+                label: "Flail, Footman's",
+                quantityBase: 1,
+                baseDays: 15,
+                basePriceGp: 3,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 4,
+                notes: 'Extrapolated from the DMG example rate of two flails or pole-arm heads per month.'
+            },
+            flailhorse: {
+                label: "Flail, Horseman's",
+                quantityBase: 1,
+                baseDays: 15,
+                basePriceGp: 8,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 4,
+                notes: 'Extrapolated from the DMG example rate of two flails or pole-arm heads per month.'
+            },
+            forkmilitary: {
+                label: 'Fork, Military',
+                quantityBase: 1,
+                baseDays: 12,
+                basePriceGp: 4,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 4,
+                notes: 'Forge-related pole arm.'
+            },
+            pikeawl: {
+                label: 'Pike, Awl',
+                quantityBase: 1,
+                baseDays: 8,
+                basePriceGp: 3,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related pole arm.'
+            },
+            fauchard: {
+                label: 'Fauchard',
+                quantityBase: 1,
+                baseDays: 10,
+                basePriceGp: 3,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related pole arm.'
+            },
+            fauchardfork: {
+                label: 'Fauchard-Fork',
+                quantityBase: 1,
+                baseDays: 15,
+                basePriceGp: 8,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 4,
+                notes: 'Forge-related pole arm.'
+            },
+            glaive: {
+                label: 'Glaive',
+                quantityBase: 1,
+                baseDays: 12,
+                basePriceGp: 6,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related pole arm.'
+            },
+            glaiveguisarme: {
+                label: 'Glaive-Guisarme',
+                quantityBase: 1,
+                baseDays: 18,
+                basePriceGp: 10,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 4,
+                notes: 'Forge-related pole arm.'
+            },
+            guisarme: {
+                label: 'Guisarme',
+                quantityBase: 1,
+                baseDays: 10,
+                basePriceGp: 5,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related pole arm.'
+            },
+            guisarmevoulge: {
+                label: 'Guisarme-Voulge',
+                quantityBase: 1,
+                baseDays: 15,
+                basePriceGp: 7,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 4,
+                notes: 'Forge-related pole arm.'
+            },
+            halberd: {
+                label: 'Halberd',
+                quantityBase: 1,
+                baseDays: 14,
+                basePriceGp: 9,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 4,
+                notes: 'Forge-related pole arm.'
+            },
+            hammerlucern: {
+                label: 'Hammer, Lucern',
+                quantityBase: 1,
+                baseDays: 10,
+                basePriceGp: 7,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related pole arm.'
+            },
+            bardiche: {
+                label: 'Bardiche',
+                quantityBase: 1,
+                baseDays: 12,
+                basePriceGp: 7,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related pole arm.'
+            },
+            becdecorbin: {
+                label: 'Bec de Corbin',
+                quantityBase: 1,
+                baseDays: 14,
+                basePriceGp: 6,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 4,
+                notes: 'Forge-related pole arm.'
+            },
+            billguisarme: {
+                label: 'Bill-Guisarme',
+                quantityBase: 1,
+                baseDays: 14,
+                basePriceGp: 6,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 4,
+                notes: 'Forge-related pole arm.'
+            },
+            partisan: {
+                label: 'Partisan',
+                quantityBase: 1,
+                baseDays: 10,
+                basePriceGp: 10,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related pole arm.'
+            },
+            ranseur: {
+                label: 'Ranseur',
+                quantityBase: 1,
+                baseDays: 9,
+                basePriceGp: 4,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related pole arm.'
+            },
+            spetum: {
+                label: 'Spetum',
+                quantityBase: 1,
+                baseDays: 9,
+                basePriceGp: 3,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related pole arm.'
+            },
+            voulge: {
+                label: 'Voulge',
+                quantityBase: 1,
+                baseDays: 8,
+                basePriceGp: 2,
+                skillMin: 0,
+                category: 'weapon',
+                support: ['woodworker'],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related pole arm.'
+            },
+            scimitar: {
+                label: 'Scimitar',
+                quantityBase: 1,
+                baseDays: 8,
+                basePriceGp: 15,
+                skillMin: 0,
+                category: 'weapon',
+                support: [],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related sword.'
+            },
+            swordshort: {
+                label: 'Sword, Short and Scabbard',
+                quantityBase: 1,
+                baseDays: 7,
+                basePriceGp: 8,
+                skillMin: 0,
+                category: 'weapon',
+                support: [],
+                leather: false,
+                complexity: 3,
+                notes: 'Forge-related sword.'
+            },
+            swordbroad: {
+                label: 'Sword, Broad and Scabbard',
+                quantityBase: 1,
+                baseDays: 10,
+                basePriceGp: 10,
+                skillMin: 0,
+                category: 'weapon',
+                support: [],
+                leather: false,
+                complexity: 4,
+                notes: 'Forge-related sword.'
+            },
+            swordlong: {
+                label: 'Sword, Long and Scabbard',
+                quantityBase: 1,
+                baseDays: 12,
+                basePriceGp: 15,
+                skillMin: 0,
+                category: 'weapon',
+                support: [],
+                leather: false,
+                complexity: 4,
+                notes: 'Forge-related sword.'
+            },
+            swordbastard: {
+                label: 'Sword, Bastard and Scabbard',
+                quantityBase: 1,
+                baseDays: 16,
+                basePriceGp: 25,
+                skillMin: 0,
+                category: 'weapon',
+                support: [],
+                leather: false,
+                complexity: 4,
+                notes: 'Forge-related sword.'
+            },
+            swordtwohanded: {
+                label: 'Sword, Two-Handed',
+                quantityBase: 1,
+                baseDays: 20,
+                basePriceGp: 30,
+                skillMin: 0,
+                category: 'weapon',
+                support: [],
+                leather: false,
+                complexity: 4,
+                notes: 'Forge-related sword.'
+            }
+        }
+    };
+
+
+    _.each(CONFIG.products, function (product, key) {
+        product.isArmor = _.contains(['ringmail', 'scalemail', 'splintedmail', 'chainmail', 'bandedmail', 'platemail'], key);
+        product.isShield = _.contains(['shieldsmall', 'shieldmedium', 'shieldlarge'], key);
+        product.isHelmet = _.contains(['helmetgreat', 'helmetsmall'], key);
+        product.isWeapon = product.category === 'weapon';
+    });
+
+    function checkInstall() {
+        state[STATE] = state[STATE] || {
+            version: VERSION,
+            nextCraftsmanId: 1,
+            nextQuoteId: 1,
+            nextJobId: 1,
+            employers: {}
+        };
+        state[STATE].version = VERSION;
+        state[STATE].nextCraftsmanId = state[STATE].nextCraftsmanId || 1;
+        state[STATE].nextQuoteId = state[STATE].nextQuoteId || 1;
+        state[STATE].nextJobId = state[STATE].nextJobId || 1;
+        state[STATE].employers = state[STATE].employers || {};
+
+        _.each(_.keys(state[STATE].employers), function (characterId) {
+            getEmployerState(characterId);
+        });
+
+        log(SCRIPT + ' v' + VERSION + ' ready.');
+    }
+
+    function registerEventHandlers() {
+        on('chat:message', handleInput);
+    }
+
+    function esc(s) {
+        return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function send(html) {
+        sendChat('', '/direct ' + html);
+    }
+
+    function box(title, body) {
+        return '<div style="background:' + CONFIG.colors.panelBg + ';border:1px solid ' + CONFIG.colors.panelBorder + ';padding:10px;max-width:470px;color:' + CONFIG.colors.text + ';">' +
+            '<div style="font-size:20px;font-weight:bold;margin-bottom:8px;">' + esc(title) + '</div>' +
+            body +
+            '</div>';
+    }
+
+    function line(label, value) {
+        return '<div style="margin:2px 0;"><b>' + esc(label) + ':</b> ' + value + '</div>';
+    }
+
+    function btn(label, command, bg, border, width) {
+        return '<a style="display:inline-block;text-align:center;margin:4px 6px 4px 0;padding:6px 8px;min-width:' + (width || 110) + 'px;color:' + CONFIG.colors.buttonText + ';background:' + CONFIG.colors.buttonBg + ';border:1px solid ' + CONFIG.colors.buttonBorder + ';text-decoration:none;" href="' + esc(command) + '">' + esc(label) + '</a>';
+    }
+
+    function btnReset(label, command, width) {
+        return '<a style="display:inline-block;text-align:center;margin:4px 6px 4px 0;padding:6px 8px;min-width:' + (width || 110) + 'px;color:white;background:' + CONFIG.colors.dangerBg + ';border:1px solid ' + CONFIG.colors.dangerBorder + ';text-decoration:none;" href="' + esc(command) + '">' + esc(label) + '</a>';
+    }
+
+    function sectionHeader(title) {
+        return '<div style="font-weight:bold;margin:10px 0 4px 0;">' + esc(title) + '</div>';
+    }
+
+    function parseArgs(content) {
+        var args = {};
+        var re = /--([^|\s]+)\|([^\n]*?)(?=\s+--[^|\s]+\||$)/g;
+        var m;
+        while ((m = re.exec(content))) {
+            args[m[1].toLowerCase()] = m[2].trim();
+        }
+        return args;
+    }
+
+    function getObjById(type, id) {
+        if (!id) return null;
+        return getObj(type, id) || null;
+    }
+
+    function getCharacterByTokenId(tokenId) {
+        var token = getObjById('graphic', tokenId);
+        if (!token) return null;
+        var rep = token.get('represents');
+        return rep ? getObjById('character', rep) : null;
+    }
+
+    function getSelectedCharacter(msg) {
+        if (!msg.selected || !msg.selected.length) return null;
+        return getCharacterByTokenId(msg.selected[0]._id);
+    }
+
+    function canControl(playerid, character) {
+        if (!character) return false;
+        if (playerIsGM(playerid)) return true;
+        var controlled = String(character.get('controlledby') || '');
+        if (!controlled) return false;
+        return _.contains(controlled.split(','), 'all') || _.contains(controlled.split(','), playerid);
+    }
+
+    function findAttr(characterId, name) {
+        return findObjs({ type: 'attribute', characterid: characterId, name: name }, { caseInsensitive: true })[0] || null;
+    }
+
+    function getAttr(characterId, name, defaultValue) {
+        var attr = findAttr(characterId, name);
+        if (!attr) return defaultValue;
+        var cur = attr.get('current');
+        return cur === '' || cur === undefined || cur === null ? defaultValue : cur;
+    }
+
+    function setAttr(characterId, name, value) {
+        var attr = findAttr(characterId, name);
+        if (attr) {
+            attr.set('current', value);
+        } else {
+            createObj('attribute', {
+                characterid: characterId,
+                name: name,
+                current: value
+            });
+        }
+    }
+
+    function toNumber(value, defaultValue) {
+        var n = Number(value);
+        return isNaN(n) ? (defaultValue || 0) : n;
+    }
+
+    function parseMoneyCp(value) {
+        return Math.round(toNumber(value, 0));
+    }
+
+    function toCp(gp, sp, cp) {
+        return parseMoneyCp(gp) * 100 + parseMoneyCp(sp) * 10 + parseMoneyCp(cp);
+    }
+
+    function fromCp(totalCp) {
+        totalCp = Math.max(0, Math.round(totalCp));
+        var gp = Math.floor(totalCp / 100);
+        totalCp -= gp * 100;
+        var sp = Math.floor(totalCp / 10);
+        totalCp -= sp * 10;
+        return { gp: gp, sp: sp, cp: totalCp };
+    }
+
+    function getTreasuryCp(character) {
+        return toCp(
+            getAttr(character.id, CONFIG.coinAttrs.gp, 0),
+            getAttr(character.id, CONFIG.coinAttrs.sp, 0),
+            getAttr(character.id, CONFIG.coinAttrs.cp, 0)
+        );
+    }
+
+    function setTreasuryCp(character, totalCp) {
+        var c = fromCp(totalCp);
+        setAttr(character.id, CONFIG.coinAttrs.gp, c.gp);
+        setAttr(character.id, CONFIG.coinAttrs.sp, c.sp);
+        setAttr(character.id, CONFIG.coinAttrs.cp, c.cp);
+    }
+
+    function formatCp(totalCp) {
+        var c = fromCp(totalCp);
+        var parts = [];
+        if (c.gp) parts.push(c.gp + ' gp');
+        if (c.sp) parts.push(c.sp + ' sp');
+        if (c.cp || !parts.length) parts.push(c.cp + ' cp');
+        return parts.join(', ');
+    }
+
+    function gpToCp(gp) {
+        return Math.round(toNumber(gp, 0) * 100);
+    }
+
+    function cpToGp(cp) {
+        return Math.round(cp) / 100;
+    }
+
+    function rollInteger(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function randomName() {
+        return CONFIG.randomNames[rollInteger(0, CONFIG.randomNames.length - 1)];
+    }
+
+    function getEmployerState(characterId) {
+        state[STATE].employers[characterId] = state[STATE].employers[characterId] || {};
+        state[STATE].employers[characterId].craftsmen = state[STATE].employers[characterId].craftsmen || [];
+        state[STATE].employers[characterId].quotes = state[STATE].employers[characterId].quotes || [];
+        state[STATE].employers[characterId].jobs = state[STATE].employers[characterId].jobs || [];
+
+        _.each(state[STATE].employers[characterId].quotes, function (q) {
+            q.support = q.support || [];
+            q.haggleAttempts = q.haggleAttempts || 0;
+            q.haggleFailures = q.haggleFailures || 0;
+            q.haggleDone = !!q.haggleDone || !!q.countered;
+        });
+        _.each(state[STATE].employers[characterId].jobs, function (j) {
+            j.support = j.support || [];
+            j.upfrontPaidCp = j.upfrontPaidCp || 0;
+            if (typeof j.balanceDueCp === 'undefined' || j.balanceDueCp === null) {
+                j.balanceDueCp = Math.max(0, (j.finalCostCp || 0) - j.upfrontPaidCp);
+            }
+            if (j.status === 'complete' && j.balanceDueCp > 0) j.status = 'ready';
+        });
+        state[STATE].employers[characterId].jobs = _.filter(state[STATE].employers[characterId].jobs, function (j) {
+            return !(j && j.status === 'complete' && (j.balanceDueCp || 0) <= 0);
+        });
+
+        return state[STATE].employers[characterId];
+    }
+
+    function controlledCharacters(playerid) {
+        var chars = findObjs({ type: 'character', archived: false });
+        return _.filter(chars, function (c) { return canControl(playerid, c); });
+    }
+
+    function buildPcQuery(msg, label) {
+        var chars = _.sortBy(controlledCharacters(msg.playerid), function (c) {
+            return (c.get('name') || '').toLowerCase();
+        });
+        if (!chars.length) return '?{' + label + '|}';
+        return '?{' + label + '|' + _.map(chars, function (c) {
+            return esc(c.get('name') || 'Unnamed') + ',' + c.id;
+        }).join('|') + '}';
+    }
+
+    function resolveEmployer(msg, args) {
+        var selected = getSelectedCharacter(msg);
+        var explicit = getObjById('character', args.pc || args.employer);
+        if (selected && canControl(msg.playerid, selected)) return selected;
+        if (explicit && canControl(msg.playerid, explicit)) return explicit;
+        return null;
+    }
+
+    function requireEmployer(msg, args) {
+        var employer = resolveEmployer(msg, args);
+        if (!employer) {
+            send(box('Blacksmith', '<div>Select the buyer PC token first.</div>'));
+            return null;
+        }
+        return employer;
+    }
+
+    function generateCraftsmanId() {
+        var id = 'C' + state[STATE].nextCraftsmanId;
+        state[STATE].nextCraftsmanId += 1;
+        return id;
+    }
+
+    function generateQuoteId() {
+        var id = 'Q' + state[STATE].nextQuoteId;
+        state[STATE].nextQuoteId += 1;
+        return id;
+    }
+
+    function generateJobId() {
+        var id = 'J' + state[STATE].nextJobId;
+        state[STATE].nextJobId += 1;
+        return id;
+    }
+
+    function getCraftsman(employerState, craftsmanId) {
+        return _.find(employerState.craftsmen, function (c) { return c.id === craftsmanId; }) || null;
+    }
+
+    function getQuote(employerState, quoteId) {
+        return _.find(employerState.quotes, function (q) { return q.id === quoteId; }) || null;
+    }
+
+    function removeQuote(employerState, quoteId) {
+        employerState.quotes = _.filter(employerState.quotes, function (q) { return q.id !== quoteId; });
+    }
+
+    function removeCraftsman(employerState, craftsmanId) {
+        employerState.craftsmen = _.filter(employerState.craftsmen, function (c) { return c.id !== craftsmanId; });
+        employerState.quotes = _.filter(employerState.quotes, function (q) { return q.craftsmanId !== craftsmanId; });
+    }
+
+    function townLabel(town) {
+        return String(town || 'Unspecified').replace(/,/g, ';').replace(/\|/g, '/').replace(/\}/g, ')');
+    }
+
+    function getBlacksmithsForEmployer(employer) {
+        if (!employer) return [];
+        return _.filter(getEmployerState(employer.id).craftsmen, function (c) {
+            return c && c.type === 'blacksmith';
+        });
+    }
+
+
+    function getAllBlacksmiths() {
+        return _.chain(state[STATE].employers || {})
+            .keys()
+            .map(function (employerId) {
+                var employerState = getEmployerState(employerId);
+                var owner = getObjById('character', employerId);
+                return _.map(_.filter(employerState.craftsmen, function (c) {
+                    return c && c.type === 'blacksmith';
+                }), function (c) {
+                    var copy = _.clone(c);
+                    copy.ownerId = employerId;
+                    copy.ownerName = owner ? (owner.get('name') || 'Employer') : 'Employer';
+                    return copy;
+                });
+            })
+            .flatten()
+            .sortBy(function (c) {
+                return ((c.name || '') + ' ' + (c.ownerName || '')).toLowerCase();
+            })
+            .value();
+    }
+
+    function getCraftsmanGlobal(craftsmanId) {
+        return _.find(getAllBlacksmiths(), function (c) {
+            return c && c.id === craftsmanId;
+        }) || null;
+    }
+
+    function getBlacksmithsByTown(employer, town) {
+        var normalizedTown = String(town || '').toLowerCase();
+        return _.filter(getBlacksmithsForEmployer(employer), function (c) {
+            return String(c.town || 'Unspecified').toLowerCase() === normalizedTown;
+        });
+    }
+
+    function buildTownQuery(employer, label) {
+        var towns;
+        if (!employer) return '?{' + label + '|None,none}';
+        towns = _.chain(getBlacksmithsForEmployer(employer))
+            .map(function (c) { return c.town || 'Unspecified'; })
+            .uniq(false, function (t) { return String(t).toLowerCase(); })
+            .sortBy(function (t) { return String(t).toLowerCase(); })
+            .value();
+        if (!towns.length) return '?{' + label + '|None,none}';
+        return '?{' + label + '|None,none|' + _.map(towns, function (t) {
+            var safeTown = townLabel(t);
+            return safeTown + ',' + safeTown;
+        }).join('|') + '}';
+    }
+
+    function getTownListForEmployer(employer) {
+        if (!employer) return [];
+        return _.chain(getBlacksmithsForEmployer(employer))
+            .map(function (c) { return c.town || 'Unspecified'; })
+            .uniq(false, function (t) { return String(t).toLowerCase(); })
+            .sortBy(function (t) { return String(t).toLowerCase(); })
+            .value();
+    }
+
+    function buildTownQueryRequired(employer, label) {
+        var towns = getTownListForEmployer(employer);
+        if (!towns.length) return '?{' + label + '|}';
+        return '?{' + label + '|' + _.map(towns, function (t) {
+            var safeTown = townLabel(t);
+            return safeTown + ',' + safeTown;
+        }).join('|') + '}';
+    }
+
+    function buildTownButtons(employer) {
+        var towns = getTownListForEmployer(employer);
+        if (!towns.length) return '<div>No towns available.</div>';
+        return _.map(towns, function (t) {
+            return btn(townLabel(t), '!smith-quote-town --pc|' + employer.id + ' --town|' + townLabel(t), CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 125);
+        }).join('');
+    }
+
+    function buildSmithButtons(employer, group) {
+        var smiths = getAllBlacksmiths();
+        var groupArg = group ? (' --group|' + group) : '';
+        if (!smiths.length) return '<div>No blacksmiths found.</div>';
+        return _.map(smiths, function (smith) {
+            return btn(smithQueryLabel(smith), '!smith-quote-menu --pc|' + employer.id + ' --smith|' + smith.id + groupArg, CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 190);
+        }).join('');
+    }
+
+
+
+
+    function buildAddTownChoiceQuery(employer, label) {
+        var towns;
+        if (!employer) return '?{' + label + '|New Town,new}';
+        towns = _.chain(getBlacksmithsForEmployer(employer))
+            .map(function (c) { return c.town || 'Unspecified'; })
+            .uniq(false, function (t) { return String(t).toLowerCase(); })
+            .sortBy(function (t) { return String(t).toLowerCase(); })
+            .value();
+        if (!towns.length) return '?{' + label + '|New Town,new}';
+        return '?{' + label + '|' + _.map(towns, function (t) {
+            var safeTown = townLabel(t);
+            return safeTown + ',' + safeTown;
+        }).join('|') + '|Create New Town,new}';
+    }
+
+
+    function randomHaggleFailComment() {
+        var comments = [
+            'Price stands unless you have better coin.',
+            'You will not get charity at my forge.',
+            'Iron and labor both cost dear.',
+            'If you want better terms, bring better silver.',
+            'The work is honest and the price is fair.',
+            'I do not shave copper for every loud customer.',
+            'A good piece takes time, and time is not free.',
+            'If you want it cheap, find a worse smith.',
+            'The quote is already kinder than most would give.',
+            'My apprentices do not work for compliments.',
+            'You are paying for sound craft, not soft words.',
+            'Steel does not listen to pleading.',
+            'That is the price for work worth owning.',
+            'You can haggle, but the hammer still falls at my pace.',
+            'I will not cut so deep that the work suffers.'
+        ];
+        return comments[rollInteger(1, comments.length) - 1];
+    }
+
+
+    function buildRemoveSmithQuery(employer, label) {
+        if (!employer) return '?{' + label + '|}';
+        var smiths = _.filter(getEmployerState(employer.id).craftsmen, function (c) { return c.type === 'blacksmith'; });
+        if (!smiths.length) return '?{' + label + '|}';
+        return '?{' + label + '|' + _.map(smiths, function (c) {
+            return smithQueryLabel(c) + ',' + c.id;
+        }).join('|') + '}';
+    }
+
+    function smithTierLabel(tier) {
+        switch (tier) {
+            case 4: return 'Any forge-related armor';
+            case 3: return 'Ring / scale / splint / chain';
+            case 2: return 'Ring / scale / splint';
+            default: return 'Ring / scale';
+        }
+    }
+
+    function determineSmithSkill(race) {
+        var raceData = CONFIG.race[race] || CONFIG.race.human;
+        var raw = rollInteger(1, 100);
+        var adjusted = Math.min(100, raw + raceData.skillBonus);
+        var tier = 1;
+        if (adjusted >= 81) tier = 4;
+        else if (adjusted >= 66) tier = 3;
+        else if (adjusted >= 41) tier = 2;
+        return {
+            rawRoll: raw,
+            adjustedRoll: adjusted,
+            tier: tier,
+            label: smithTierLabel(tier)
+        };
+    }
+
+    function humanizeRole(role) {
+        switch (role) {
+            case 'leatherworker': return 'Leatherworker';
+            case 'tailor': return 'Tailor';
+            case 'woodworker': return 'Woodworker';
+            default: return role;
+        }
+    }
+
+    function specialistSupportCostCp(role, days) {
+        var gpPerMonth = CONFIG.helperMonthlyGp[role] || 0;
+        return Math.round((gpPerMonth / 30) * days * 100);
+    }
+
+    function arraySupportCostCp(support, days) {
+        return _.reduce(support || [], function (sum, role) {
+            return sum + specialistSupportCostCp(role, days);
+        }, 0);
+    }
+
+    function raceEfficiency(race) {
+        return (CONFIG.race[race] || CONFIG.race.human).efficiency;
+    }
+
+    function weaponSkillTimeMultiplier(product, craft) {
+        var tier = craft && craft.skillTier ? craft.skillTier : 4;
+        var complexity = product && product.complexity ? product.complexity : 1;
+        if (!product || !product.isWeapon) return 1;
+        if (tier >= 4) return 1;
+        if (tier === 3) return complexity >= 4 ? 1.25 : (complexity >= 3 ? 1.15 : 1);
+        if (tier === 2) return complexity >= 4 ? 1.5 : (complexity >= 3 ? 1.25 : (complexity >= 2 ? 1.15 : 1));
+        return complexity >= 4 ? 2 : (complexity >= 3 ? 1.5 : (complexity >= 2 ? 1.25 : 1.1));
+    }
+
+    function productHumanDays(product, quantity, craft) {
+        var baseDays;
+        var multiplier;
+        quantity = Math.max(1, parseInt(quantity || 1, 10));
+        if (product.quantityBase && product.quantityBase > 1) {
+            baseDays = (quantity / product.quantityBase) * product.baseDays;
+        } else {
+            baseDays = product.baseDays * quantity;
+        }
+        multiplier = weaponSkillTimeMultiplier(product, craft);
+        return Math.max(1, Math.ceil(baseDays * multiplier));
+    }
+
+    function productActualDays(product, quantity, efficiency, craft) {
+        return Math.max(1, Math.ceil(productHumanDays(product, quantity, craft) / efficiency));
+    }
+
+    function payCostOrReport(employer, totalCp) {
+        var treasury = getTreasuryCp(employer);
+        if (treasury < totalCp) {
+            return { ok: false, needed: totalCp, onHand: treasury };
+        }
+        setTreasuryCp(employer, treasury - totalCp);
+        return { ok: true, paid: totalCp };
+    }
+
+    function smithQueryLabel(c) {
+        var tier = smithTierLabel(c.skillTier)
+            .replace(/,/g, ';')
+            .replace(/\|/g, '/')
+            .replace(/\}/g, ')');
+        var owner = c && c.ownerName ? (' - ' + String(c.ownerName).replace(/,/g, ';').replace(/\|/g, '/').replace(/\}/g, ')')) : '';
+        return String(c.name || 'Blacksmith') + ' (' + tier + ')' + owner;
+    }
+
+
+    function buildSmithQuery(employer, label, town) {
+        var smiths;
+        if (!employer) return '?{' + label + '|}';
+        smiths = getBlacksmithsForEmployer(employer);
+        if (!smiths.length) return '?{' + label + '|}';
+        return '?{' + label + '|' + _.map(smiths, function (c) {
+            return smithQueryLabel(c) + ',' + c.id;
+        }).join('|') + '}';
+    }
+
+    function buildSmithArg(employer, town) {
+        var smiths;
+        if (!employer) return '';
+        smiths = getBlacksmithsForEmployer(employer);
+        if (!smiths.length) return ' --smith|';
+        if (smiths.length === 1) return ' --smith|' + smiths[0].id;
+        return ' --smith|?{Which blacksmith?|' + _.map(smiths, function (c) {
+            return smithQueryLabel(c) + ',' + c.id;
+        }).join('|') + '}';
+    }
+
+    function productQueryLabel(product) {
+        return String(product.label || 'Item')
+            .replace(/,/g, ';')
+            .replace(/\|/g, '/')
+            .replace(/\}/g, ')');
+    }
+
+    function productMatchesGroup(product, group) {
+        group = String(group || 'all').toLowerCase();
+        if (group === 'all') return true;
+        if (group === 'weapons') return !!(product && product.isWeapon);
+        if (group === 'armor') return !!(product && (product.isArmor || product.isShield || product.isHelmet));
+        return true;
+    }
+
+    function buildProductQueryForSmith(craft, label, group) {
+        var keys = _.filter(_.keys(CONFIG.products), function (key) {
+            return canOfferProduct(craft, key) && productMatchesGroup(CONFIG.products[key], group);
+        });
+        if (!keys.length) return '?{' + label + '|}';
+        return '?{' + label + '|' + _.map(keys, function (key) {
+            return productQueryLabel(CONFIG.products[key]) + ',' + key;
+        }).join('|') + '}';
+    }
+
+    function buildCounterQuery(employerState, label) {
+        if (!employerState.quotes.length) return '?{' + label + '|none}';
+        return '?{' + label + '|None,none|' + _.map(employerState.quotes, function (q) {
+            var desc = String(q.description || 'Quote').replace(/,/g, ';').replace(/\|/g, '/').replace(/\}/g, ')');
+            return desc + ' [' + q.id + '],' + q.id;
+        }).join('|') + '}';
+    }
+
+    function menuBody(msg, employer) {
+        var employerArg = ' --pc|@{selected|character_id}';
+        var employerState = employer ? getEmployerState(employer.id) : null;
+        var hasQuotes = employer && employerState && employerState.quotes.length;
+        var hasSmiths = getAllBlacksmiths().length;
+        var infoLine = employer ? '<div style="margin-bottom:8px;color:' + CONFIG.colors.subtext + ';">Use the selected PC token as the buyer for this menu.</div>' : '<div style="margin-bottom:8px;color:' + CONFIG.colors.subtext + ';">Select the buyer PC token first.</div>';
+        return infoLine +
+            '<div style="margin-bottom:8px;">' +
+            btn('Add Blacksmith', employer ? ('!smith-add-blacksmith' + employerArg + ' --name|?{Blacksmith Name|' + randomName() + '} --race|?{Race|Human,human|Dwarf,dwarf|Gnome,gnome}') : '!smith-menu', CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 120) +
+            btn('Weapons', employer ? (hasSmiths ? ('!smith-quote-start' + employerArg + ' --group|weapons') : '!smith-menu') : '!smith-menu', CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 120) +
+            btn('Armor / Shields', employer ? (hasSmiths ? ('!smith-quote-start' + employerArg + ' --group|armor') : '!smith-menu') : '!smith-menu', CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 120) +
+            '</div>' +
+            '<div style="margin-bottom:8px;">' +
+            btn('Price List', employer ? ('!smith-price-list' + employerArg) : '!smith-price-list', CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 125) +
+            btn('Status Report', employer ? ('!smith-report' + employerArg + ' --days|?{Days passed since last check|0}') : '!smith-menu', CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 125) +
+            '</div>' +
+            '<div style="margin-bottom:8px;">' +
+            btn('Apply Days', employer ? ('!smith-apply-days' + employerArg + ' --days|?{Days passed|1}') : '!smith-menu', CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 125) +
+            (hasQuotes ? btn('View Quotes', '!smith-quotes' + employerArg, CONFIG.colors.warnBg, CONFIG.colors.warnBorder, 125) : '') +
+            '</div>' +
+            (employer ? '<div style="margin-bottom:8px;">' +
+                btn('Remove Blacksmith', '!smith-remove-blacksmith-menu' + employerArg, CONFIG.colors.dangerBg, CONFIG.colors.dangerBorder, 125) +
+                btn('Remove All Smiths', '!smith-remove-all' + employerArg + ' --confirm|?{Remove all blacksmiths and open quotes for this PC?|No,no|Yes,yes}', CONFIG.colors.dangerBg, CONFIG.colors.dangerBorder, 125) +
+                '</div>' : '') +
+            ((employer && playerIsGM(msg.playerid)) ? '<div style="margin-bottom:8px;">' +
+                btnReset('Reset Campaign', '!smith-reset --confirm|?{Reset all Blacksmith data for the whole campaign?|No,no|Yes,yes}', 125) +
+                '</div>' : '') +
+            '<div style="color:' + CONFIG.colors.subtext + ';font-size:12px;">Only forge-related items are offered here. Bows, crossbows, leather armor, padded armor, studded leather, arrows, and other non-forge work are omitted. Weapon times are judgment-based extrapolations from the DMG production examples you provided, with race efficiency and smith skill affecting completion time.</div>';
+    }
+
+
+    function handleMenu(msg, args) {
+        var employer = resolveEmployer(msg, args);
+        send(box('Blacksmith Menu', menuBody(msg, employer)));
+    }
+
+    function handleAddBlacksmith(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, race, skill, craftsman;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        race = String(args.race || 'human').toLowerCase();
+        skill = determineSmithSkill(race);
+        craftsman = {
+            id: generateCraftsmanId(),
+            type: 'blacksmith',
+            name: args.name || randomName(),
+            town: '',
+            race: race,
+            efficiency: raceEfficiency(race),
+            skillRoll: skill.rawRoll,
+            skillAdjusted: skill.adjustedRoll,
+            skillTier: skill.tier,
+            skillLabel: skill.label,
+            setupCostCp: 0
+        };
+        employerState.craftsmen.push(craftsman);
+        send(box('Blacksmith Added',
+            line('Employer', esc(employer.get('name'))) +
+            line('Name', esc(craftsman.name)) +
+            line('Race', esc(craftsman.race)) +
+            line('Raw skill roll', esc(craftsman.skillRoll)) +
+            line('Adjusted skill roll', esc(craftsman.skillAdjusted)) +
+            line('Armor skill', esc(craftsman.skillLabel)) +
+            line('Efficiency', esc(craftsman.efficiency + 'x')) +
+            skillAvailabilityHtml(craftsman) +
+            btn('Request Quote', '!smith-quote-menu --pc|' + employer.id + ' --smith|' + craftsman.id, CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 110) +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+        ));
+    }
+
+
+    function canOfferProduct(craft, key) {
+        var product = CONFIG.products[key];
+        if (!product || !craft) return false;
+        if (!product.isArmor) return true;
+        return craft.skillTier >= product.skillMin;
+    }
+
+    function skillAvailabilityHtml(craft) {
+        var armorAvailable = [];
+        var armorUnavailable = [];
+
+        _.each(_.keys(CONFIG.products), function (key) {
+            var product = CONFIG.products[key];
+            if (product.isWeapon) return;
+            if (canOfferProduct(craft, key)) {
+                armorAvailable.push(product.label);
+            } else {
+                armorUnavailable.push(product.label);
+            }
+        });
+
+        armorAvailable.sort();
+        armorUnavailable.sort();
+
+        return sectionHeader('Item availability') +
+            '<div style="margin:4px 0 6px 0;color:#7CFC7C;"><b>Forge weapons:</b> All listed forge weapons can be made.</div>' +
+            '<div style="margin:4px 0 6px 0;color:#7CFC7C;"><b>Armor / shields available:</b> ' + (armorAvailable.length ? esc(armorAvailable.join(', ')) : 'None') + '</div>' +
+            '<div style="margin:4px 0 8px 0;color:#ff8a8a;"><b>Armor unavailable:</b> ' + (armorUnavailable.length ? esc(armorUnavailable.join(', ')) : 'None') + '</div>';
+    }
+
+    function buildQuoteProductButtons(employer, craft, group) {
+        var buttons = _.map(_.keys(CONFIG.products), function (key) {
+            var product = CONFIG.products[key];
+            if (!canOfferProduct(craft, key) || !productMatchesGroup(product, group)) return '';
+            var qtyDefault = product.quantityBase > 1 ? product.quantityBase : 1;
+            return '<div style="margin:4px 0 8px 0;">' +
+                '<div><b>' + esc(product.label) + '</b> - ' + esc(product.baseDays + ' day(s) base') + '</div>' +
+                '<div style="color:' + CONFIG.colors.subtext + ';font-size:12px;">' + esc(product.notes || '') + '</div>' +
+                btn('Quote', '!smith-quote-standard --pc|' + employer.id + ' --smith|' + craft.id + ' --job|' + key + ' --qty|?{Quantity|' + qtyDefault + '}', CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 90) +
+                '</div>';
+        }).join('');
+        return buttons || '<div>No products available for this smith.</div>';
+    }
+
+    
+    function handleQuoteStart(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var smiths;
+        var group = String(args.group || 'all').toLowerCase();
+        var label = group === 'weapons' ? 'forge weapons' : (group === 'armor' ? 'armor or shields' : 'forge work');
+        if (!employer) return;
+        smiths = getAllBlacksmiths();
+        if (!smiths.length) {
+            send(box('Request Quote',
+                '<div>No blacksmiths are recorded in the campaign yet.</div>' +
+                btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+            ));
+            return;
+        }
+        send(box('Request Quote',
+            '<div>Choose a blacksmith for ' + esc(label) + '. The selected token is the buyer.</div>' +
+            buildSmithButtons(employer, group) +
+            '<div style="margin-top:8px;">' +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+            '</div>'
+        ));
+    }
+
+
+    function handleQuoteTown(msg, args) {
+        handleQuoteStart(msg, args);
+    }
+
+
+    function handlePriceList(msg, args) {
+        var employer = resolveEmployer(msg, args);
+        var group = String(args.group || 'all').toLowerCase();
+        var title = group === 'weapons' ? 'Blacksmith Price List - Weapons' : (group === 'armor' ? 'Blacksmith Price List - Armor / Shields' : 'Blacksmith Price List');
+        var items = _.map(_.keys(CONFIG.products), function (key) {
+            var product = CONFIG.products[key];
+            if (!productMatchesGroup(product, group)) return '';
+            return '<li><b>' + esc(product.label) + '</b> - starting price ' + esc(formatCp(gpToCp(product.basePriceGp || 0))) +
+                ' - ' + esc(product.baseDays) + ' day(s)' +
+                (product.notes ? ' - ' + esc(product.notes) : '') + '</li>';
+        }).join('');
+        send(box(title,
+            '<div style="color:' + CONFIG.colors.subtext + ';margin-bottom:8px;">Starting prices come from the PHB values you provided. Final quotes still apply the existing random variance, reaction adjustment, and haggling rules.</div>' +
+            '<ul style="margin:4px 0 0 18px;">' + items + '</ul>' +
+            btn('Weapons', employer ? '!smith-price-list --pc|' + employer.id + ' --group|weapons' : '!smith-price-list --group|weapons', CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 100) +
+            btn('Armor / Shields', employer ? '!smith-price-list --pc|' + employer.id + ' --group|armor' : '!smith-price-list --group|armor', CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 120) +
+            btn('Main Menu', employer ? '!smith-menu --pc|' + employer.id : '!smith-menu', CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+        ));
+    }
+
+
+    function handleQuoteMenu(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, craft, productQuery, group, title, intro;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        craft = getCraftsmanGlobal(args.smith) || getCraftsman(employerState, args.smith);
+        if (!craft || craft.type !== 'blacksmith') {
+            send(box('Request Quote', '<div>Pick an existing blacksmith first.</div>' + btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)));
+            return;
+        }
+
+        group = String(args.group || 'all').toLowerCase();
+        if (group === 'all') {
+            send(box('Request Blacksmith Quote',
+                line('Blacksmith', esc(craft.name)) +
+                line('Armor skill', esc(craft.skillLabel + ' (' + craft.skillAdjusted + ')')) +
+                skillAvailabilityHtml(craft) +
+                '<div style="margin:8px 0;color:' + CONFIG.colors.subtext + ';">Choose a forge-work category.</div>' +
+                btn('Weapons', '!smith-quote-menu --pc|' + employer.id + ' --smith|' + craft.id + ' --group|weapons', CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 120) +
+                btn('Armor / Shields', '!smith-quote-menu --pc|' + employer.id + ' --smith|' + craft.id + ' --group|armor', CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 120) +
+                btn('Price List', '!smith-price-list --pc|' + employer.id, CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 120) +
+                btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+            ));
+            return;
+        }
+
+        productQuery = buildProductQueryForSmith(craft, 'Item', group);
+        if (productQuery === '?{Item|}') {
+            send(box('Request Quote',
+                line('Blacksmith', esc(craft.name)) +
+                '<div>No items are available in that category for this blacksmith.</div>' +
+                btn('Back', '!smith-quote-menu --pc|' + employer.id + ' --smith|' + craft.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+            ));
+            return;
+        }
+
+        title = group === 'weapons' ? 'Request Weapon Quote' : 'Request Armor / Shield Quote';
+        intro = group === 'weapons' ? 'Select a forge weapon from the drop-down list.' : 'Select forge-related armor, a helm, or a shield from the drop-down list.';
+        send(box(title,
+            line('Blacksmith', esc(craft.name)) +
+            line('Armor skill', esc(craft.skillLabel + ' (' + craft.skillAdjusted + ')')) +
+            skillAvailabilityHtml(craft) +
+            '<div style="margin:8px 0;color:' + CONFIG.colors.subtext + ';">' + esc(intro) + ' Starting prices come from the equipment values you provided; final quotes still vary.</div>' +
+            btn('Quote Item', '!smith-quote-standard --pc|' + employer.id + ' --smith|' + craft.id + ' --job|' + productQuery + ' --qty|?{Quantity|1}', CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 120) +
+            btn('Back', '!smith-quote-menu --pc|' + employer.id + ' --smith|' + craft.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+        ));
+    }
+
+    function createQuote(employer, craft, options) {
+        var employerState = getEmployerState(employer.id);
+        var reactionBonus = Math.round(toNumber(getAttr(employer.id, CONFIG.reactionAttr, 0), 0));
+        var days = Math.max(1, Math.ceil(options.days));
+        var basePriceCp = gpToCp(options.basePriceGp || 0);
+        var randomVariancePct = rollInteger(-15, 50);
+        var randomAdjustedCp = Math.max(0, Math.round(basePriceCp * (1 + (randomVariancePct / 100))));
+        var helperCostCp = arraySupportCostCp(options.support || [], days);
+        var leatherCostCp = options.leather ? Math.round(basePriceCp * 0.10) : 0;
+        var fixedCostCp = helperCostCp + leatherCostCp + gpToCp(options.extraCostGp || 0);
+        var reactionAdjustedCp = Math.max(0, Math.round(randomAdjustedCp * (1 - (reactionBonus / 100))));
+        var floorNegotiableCp = Math.round(basePriceCp * 0.30);
+        var offeredNegotiableCp = Math.max(floorNegotiableCp, reactionAdjustedCp);
+        var totalQuoteCp = fixedCostCp + offeredNegotiableCp;
+        var depositCp = Math.ceil(totalQuoteCp / 2);
+        var balanceCp = totalQuoteCp - depositCp;
+        var quote = {
+            id: generateQuoteId(),
+            craftsmanId: craft.id,
+            craftsmanName: craft.name,
+            craftsmanTown: '',
+            employerId: employer.id,
+            employerName: employer.get('name') || 'Employer',
+            description: options.description,
+            quantity: options.quantity,
+            category: options.category,
+            support: options.support || [],
+            leather: !!options.leather,
+            actualDays: days,
+            humanDays: options.humanDays,
+            basePriceCp: basePriceCp,
+            randomVariancePct: randomVariancePct,
+            randomAdjustedCp: randomAdjustedCp,
+            floorNegotiableCp: floorNegotiableCp,
+            fixedCostCp: fixedCostCp,
+            helperCostCp: helperCostCp,
+            leatherCostCp: leatherCostCp,
+            extraCostCp: gpToCp(options.extraCostGp || 0),
+            reactionBonus: reactionBonus,
+            reactionAdjustedCp: reactionAdjustedCp,
+            currentNegotiableCp: offeredNegotiableCp,
+            currentQuoteCp: totalQuoteCp,
+            depositCp: depositCp,
+            balanceDueCp: balanceCp,
+            haggleAttempts: 0,
+            haggleFailures: 0,
+            haggleDone: false,
+            notes: options.notes || ''
+        };
+        employerState.quotes.push(quote);
+        return quote;
+    }
+
+
+    function quoteSummaryHtml(quote, showButtons) {
+        var haggleTarget = Math.max(0, Math.min(95, 10 + toNumber(quote.reactionBonus, 0)));
+        var body = '' +
+            line('Blacksmith', esc(quote.craftsmanName)) +
+            line('Job', esc(quote.description)) +
+            line('Actual days', esc(quote.actualDays)) +
+            line('Starting table price', esc(formatCp(quote.basePriceCp))) +
+            line('Random variance', esc((quote.randomVariancePct >= 0 ? '+' : '') + quote.randomVariancePct + '%')) +
+            line('After random variance', esc(formatCp(quote.randomAdjustedCp))) +
+            line('Reaction bonus', esc((quote.reactionBonus >= 0 ? '+' : '') + quote.reactionBonus + '%')) +
+            line('After reaction adjustment', esc(formatCp(quote.currentNegotiableCp))) +
+            line('Haggle target', esc(haggleTarget + '%'));
+        if (quote.support.length) body += line('Support trades', esc(_.map(quote.support, humanizeRole).join(', ')));
+        if (quote.helperCostCp) body += line('Support trade time cost', esc(formatCp(quote.helperCostCp)));
+        if (quote.leather) body += line('Leather materials', esc(formatCp(quote.leatherCostCp)));
+        if (quote.extraCostCp) body += line('Extra fixed cost', esc(formatCp(quote.extraCostCp)));
+        if (quote.fixedCostCp) body += line('Material/helper costs', esc(formatCp(quote.fixedCostCp)));
+        if (quote.notes) body += '<div style="margin-top:6px;color:' + CONFIG.colors.subtext + ';">' + esc(quote.notes) + '</div>';
+        body += '<div style="margin-top:8px;padding-top:8px;border-top:1px solid #2e2e2e;">' +
+            line('Final quote', '<span style="color:#ffd25e;font-weight:bold;">' + esc(formatCp(quote.currentQuoteCp)) + '</span>') +
+            line('Half down now', esc(formatCp(quote.depositCp || Math.ceil(quote.currentQuoteCp / 2)))) +
+            line('Balance on pickup', esc(formatCp(typeof quote.balanceDueCp === 'number' ? quote.balanceDueCp : (quote.currentQuoteCp - Math.ceil(quote.currentQuoteCp / 2))))) +
+            '</div>';
+        if (showButtons) {
+            body += '<div style="margin-top:8px;">' +
+                btn('Place Order', '!smith-accept-quote --pc|' + quote.employerId + ' --quote|' + quote.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+                (!quote.haggleDone ? btn('Haggle Price', '!smith-counteroffer --pc|' + quote.employerId + ' --quote|' + quote.id, CONFIG.colors.warnBg, CONFIG.colors.warnBorder, 110) : '') +
+                btn('Deny Quote', '!smith-deny-quote --pc|' + quote.employerId + ' --quote|' + quote.id, CONFIG.colors.dangerBg, CONFIG.colors.dangerBorder, 110) +
+                btn('Main Menu', '!smith-menu --pc|' + quote.employerId, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+                '</div>';
+        }
+        return body;
+    }
+
+
+    function handleQuoteStandard(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, craft, product, qty, days, humanDays, quote;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        craft = getCraftsmanGlobal(args.smith) || getCraftsman(employerState, args.smith);
+        product = CONFIG.products[String(args.job || '')];
+        if (!craft || craft.type !== 'blacksmith') {
+            send(box('Blacksmith Quote', '<div>Pick an existing blacksmith first.</div>' + btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)));
+            return;
+        }
+        if (!product || !canOfferProduct(craft, String(args.job || ''))) {
+            send(box('Blacksmith Quote',
+                line('Employer', esc(employer.get('name'))) +
+                line('Blacksmith', esc(craft.name)) +
+                '<div>That item cannot be offered by this blacksmith at the current skill level.</div>' +
+                btn('Quote Menu', '!smith-quote-menu --pc|' + employer.id + ' --smith|' + craft.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+            ));
+            return;
+        }
+        qty = Math.max(1, parseInt(args.qty || 1, 10));
+        days = productActualDays(product, qty, craft.efficiency, craft);
+        humanDays = productHumanDays(product, qty, craft);
+        quote = createQuote(employer, craft, {
+            description: product.label + (qty > 1 ? ' x' + qty : ''),
+            quantity: qty,
+            category: product.category,
+            support: product.support,
+            leather: product.leather,
+            days: days,
+            humanDays: humanDays,
+            basePriceGp: (product.basePriceGp || 0) * qty,
+            extraCostGp: 0,
+            notes: product.notes
+        });
+        send(box('Blacksmith Quote', quoteSummaryHtml(quote, true)));
+    }
+
+    function parseSupportArg(raw) {
+        var val = String(raw || 'none').toLowerCase();
+        if (val === 'none' || !val) return [];
+        return _.filter(val.split('+'), function (s) { return !!s; });
+    }
+
+    function handleCustomQuote(msg, args) {
+        var employer = requireEmployer(msg, args);
+        if (!employer) return;
+        send(box('Custom Quote Removed',
+            line('Employer', esc(employer.get('name'))) +
+            '<div>Use <b>Request Quote</b> and choose a blacksmith.</div>' +
+            btn('Request Quote', '!smith-quote-start --pc|' + employer.id, CONFIG.colors.primaryBg, CONFIG.colors.primaryBorder, 120) +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+        ));
+    }
+
+    function handleCounteroffer(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, quote, roll, success, haggleTarget, newNegotiableCp, resultText;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        quote = getQuote(employerState, args.quote);
+        if (!quote) {
+            send(box('Haggle Price', '<div>Quote not found.</div>' + btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)));
+            return;
+        }
+        if (quote.haggleDone) {
+            send(box('Haggle Price',
+                line('Job', esc(quote.description)) +
+                '<div>Haggling is already finished for this quote.</div>' +
+                btn('View Quotes', '!smith-quotes --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+            ));
+            return;
+        }
+        roll = rollInteger(1, 100);
+        haggleTarget = Math.max(0, Math.min(95, 10 + toNumber(quote.reactionBonus, 0)));
+        success = roll <= haggleTarget;
+        quote.haggleAttempts = (quote.haggleAttempts || 0) + 1;
+        if (success) {
+            newNegotiableCp = Math.max(quote.floorNegotiableCp, Math.round(quote.currentNegotiableCp * 0.95));
+            quote.currentNegotiableCp = newNegotiableCp;
+            quote.currentQuoteCp = quote.fixedCostCp + newNegotiableCp;
+            quote.depositCp = Math.ceil(quote.currentQuoteCp / 2);
+            quote.balanceDueCp = quote.currentQuoteCp - quote.depositCp;
+            quote.haggleDone = true;
+            resultText = '<span style="color:#8fe38f;font-weight:bold;">Success - smith reduces the quoted smith charge by 5%.</span>';
+        } else {
+            quote.haggleFailures = (quote.haggleFailures || 0) + 1;
+            quote.lastHaggleComment = randomHaggleFailComment();
+            if (quote.haggleFailures >= 2) {
+                quote.currentNegotiableCp = Math.round(quote.currentNegotiableCp * 1.10);
+                quote.currentQuoteCp = quote.fixedCostCp + quote.currentNegotiableCp;
+                quote.depositCp = Math.ceil(quote.currentQuoteCp / 2);
+                quote.balanceDueCp = quote.currentQuoteCp - quote.depositCp;
+                quote.haggleDone = true;
+                resultText = '<span style="color:#ff7b7b;font-weight:bold;">Second failure - smith raises the quoted smith charge by 10% and ends haggling.</span>';
+            } else {
+                resultText = '<span style="color:#ffb36b;font-weight:bold;">Failure - no change yet. One more haggle attempt remains.</span>';
+            }
+        }
+        send(box('Haggle Result',
+            line('Job', esc(quote.description)) +
+            line('Haggle target', esc(haggleTarget + '%')) +
+            line('Die roll', esc(roll)) +
+            line('Result', resultText) +
+            ((!success && quote.lastHaggleComment) ? line('Smith says', esc(quote.lastHaggleComment)) : '') +
+            line('Current quote', '<span style="color:#ffd25e;font-weight:bold;">' + esc(formatCp(quote.currentQuoteCp)) + '</span>') +
+            line('Half down now', esc(formatCp(quote.depositCp))) +
+            line('Balance on pickup', esc(formatCp(quote.balanceDueCp))) +
+            '<div style="margin-top:8px;">' +
+                btn('Place Order', '!smith-accept-quote --pc|' + employer.id + ' --quote|' + quote.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+                (!quote.haggleDone ? btn('Haggle Price', '!smith-counteroffer --pc|' + employer.id + ' --quote|' + quote.id, CONFIG.colors.warnBg, CONFIG.colors.warnBorder, 110) : '') +
+                (!success ? btn('Deny Quote', '!smith-deny-quote --pc|' + employer.id + ' --quote|' + quote.id, CONFIG.colors.dangerBg, CONFIG.colors.dangerBorder, 110) : '') +
+                btn('View Quotes', '!smith-quotes --pc|' + employer.id, CONFIG.colors.warnBg, CONFIG.colors.warnBorder, 110) +
+                btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+            '</div>'
+        ));
+    }
+
+    function handleAcceptQuote(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, quote, payResult, job, depositCp, balanceCp;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        quote = getQuote(employerState, args.quote);
+        if (!quote) {
+            send(box('Place Order', '<div>Quote not found.</div>' + btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)));
+            return;
+        }
+        depositCp = quote.depositCp || Math.ceil(quote.currentQuoteCp / 2);
+        balanceCp = typeof quote.balanceDueCp === 'number' ? quote.balanceDueCp : (quote.currentQuoteCp - depositCp);
+        payResult = payCostOrReport(employer, depositCp);
+        if (!payResult.ok) {
+            send(box('Place Order',
+                line('Employer', esc(employer.get('name'))) +
+                line('Needed now', esc(formatCp(payResult.needed))) +
+                line('On hand', esc(formatCp(payResult.onHand))) +
+                '<div>Not enough coin on the PC sheet for the half-down payment.</div>' +
+                btn('View Quotes', '!smith-quotes --pc|' + employer.id, CONFIG.colors.warnBg, CONFIG.colors.warnBorder, 110)
+            ));
+            return;
+        }
+        job = {
+            id: generateJobId(),
+            craftsmanId: quote.craftsmanId,
+            craftsmanName: quote.craftsmanName,
+            craftsmanTown: quote.craftsmanTown || 'Unspecified',
+            description: quote.description,
+            actualDays: quote.actualDays,
+            elapsedDays: 0,
+            status: 'active',
+            finalCostCp: quote.currentQuoteCp,
+            upfrontPaidCp: depositCp,
+            balanceDueCp: balanceCp,
+            support: quote.support,
+            notes: 'Order placed. Human-day estimate ' + quote.humanDays + '. Half down paid: ' + formatCp(depositCp) + '. Haggle attempts: ' + (quote.haggleAttempts || 0) + '.'
+        };
+        employerState.jobs.push(job);
+        employerState.quotes = _.filter(employerState.quotes, function (q) {
+            if (q.id === quote.id) return false;
+            return !(q.craftsmanId === quote.craftsmanId && q.description === quote.description);
+        });
+        send(box('Order Placed',
+            line('Employer', esc(employer.get('name'))) +
+            line('Job', esc(job.description)) +
+            line('Blacksmith', esc(job.craftsmanName)) +
+            line('Half down paid', esc(formatCp(job.upfrontPaidCp))) +
+            line('Balance due on pickup', esc(formatCp(job.balanceDueCp))) +
+            line('Time to complete', esc(job.actualDays + ' day(s)')) +
+            btn('Status Report', '!smith-report --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+        ));
+    }
+
+    function handleDenyQuote(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, quote;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        quote = getQuote(employerState, args.quote);
+        if (!quote) {
+            send(box('Deny Quote', '<div>Quote not found.</div>' + btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)));
+            return;
+        }
+        removeQuote(employerState, quote.id);
+        send(box('Quote Denied',
+            line('Employer', esc(employer.get('name'))) +
+            line('Blacksmith', esc(quote.craftsmanName)) +
+            line('Job', esc(quote.description)) +
+            '<div>The quote was removed.</div>' +
+            btn('View Quotes', '!smith-quotes --pc|' + employer.id, CONFIG.colors.warnBg, CONFIG.colors.warnBorder, 110) +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+        ));
+    }
+
+    function handleRemoveBlacksmithMenu(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, smiths, body;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        smiths = _.filter(employerState.craftsmen, function (c) { return c.type === 'blacksmith'; });
+
+        if (!smiths.length) {
+            send(box('Remove Blacksmith',
+                '<div>No blacksmiths found for this employer.</div>' +
+                btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+            ));
+            return;
+        }
+
+        body = '<div style="margin-bottom:8px;color:' + CONFIG.colors.subtext + ';">Choose a blacksmith to remove.</div>' +
+            _.map(_.sortBy(smiths, function (c) { return (c.name || '').toLowerCase(); }), function (c) {
+                return '<div style="margin-bottom:8px;padding:6px 0;border-top:1px solid ' + CONFIG.colors.border + ';">' +
+                    '<div><b>' + esc(c.name || 'Blacksmith') + '</b> — ' + esc(c.race || 'human') + ' — ' + esc(c.skillLabel || '') + '</div>' +
+                    btn('Remove', '!smith-remove-blacksmith --pc|' + employer.id + ' --smith|' + c.id, CONFIG.colors.dangerBg, CONFIG.colors.dangerBorder, 90) +
+                    '</div>';
+            }).join('') +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110);
+
+        send(box('Remove Blacksmith', body));
+    }
+
+    function handleRemoveBlacksmith(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, craft, removedQuotes;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        craft = getCraftsmanGlobal(args.smith) || getCraftsman(employerState, args.smith);
+        if (!craft || craft.type !== 'blacksmith') {
+            send(box('Remove Blacksmith', '<div>Blacksmith not found.</div>' + btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)));
+            return;
+        }
+        removedQuotes = _.filter(employerState.quotes, function (q) { return q.craftsmanId === craft.id; }).length;
+        removeCraftsman(employerState, craft.id);
+        send(box('Blacksmith Removed',
+            line('Employer', esc(employer.get('name'))) +
+            line('Name', esc(craft.name)) +
+            line('Open quotes removed', esc(removedQuotes)) +
+            '<div>Existing jobs already placed were left in the log.</div>' +
+            btn('Status Report', '!smith-report --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+        ));
+    }
+
+    function handleRemoveAll(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, removedSmiths, removedQuotes;
+        if (!employer) return;
+        if (String(args.confirm || 'no').toLowerCase() !== 'yes') {
+            send(box('Remove All Smiths',
+                line('Employer', esc(employer.get('name'))) +
+                '<div>No changes made.</div>' +
+                btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+            ));
+            return;
+        }
+        employerState = getEmployerState(employer.id);
+        removedSmiths = _.filter(employerState.craftsmen, function (c) { return c.type === 'blacksmith'; }).length;
+        removedQuotes = employerState.quotes.length;
+        employerState.craftsmen = _.filter(employerState.craftsmen, function (c) { return c.type !== 'blacksmith'; });
+        employerState.quotes = [];
+        send(box('All Blacksmiths Removed',
+            line('Employer', esc(employer.get('name'))) +
+            line('Blacksmiths removed', esc(removedSmiths)) +
+            line('Open quotes removed', esc(removedQuotes)) +
+            '<div>Existing jobs already placed were left in the log.</div>' +
+            btn('Status Report', '!smith-report --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+        ));
+    }
+
+    function handleReset(msg, args) {
+        if (!playerIsGM(msg.playerid)) {
+            send(box('Blacksmith', '<div>GM only.</div>'));
+            return;
+        }
+        if (String(args.confirm || 'no').toLowerCase() !== 'yes') {
+            send(box('Reset Campaign', '<div>No changes made.</div>' + btn('Main Menu', '!smith-menu', CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)));
+            return;
+        }
+        state[STATE] = {
+            version: VERSION,
+            nextCraftsmanId: 1,
+            nextQuoteId: 1,
+            nextJobId: 1,
+            employers: {}
+        };
+        send(box('Reset Campaign',
+            '<div>All Blacksmith data, quotes, and jobs were cleared for the campaign.</div>' +
+            btn('Main Menu', '!smith-menu', CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+        ));
+    }
+
+    function handleQuotes(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, body;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        if (!employerState.quotes.length) {
+            send(box('Open Quotes',
+                line('Employer', esc(employer.get('name'))) +
+                '<div>No open quotes.</div>' +
+                btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+            ));
+            return;
+        }
+        body = line('Employer', esc(employer.get('name'))) +
+            _.map(employerState.quotes, function (q) {
+                return '<div style="margin:10px 0;padding-top:8px;border-top:1px solid #2e2e2e;">' + quoteSummaryHtml(q, true) + '</div>';
+            }).join('');
+        send(box('Open Quotes', body));
+    }
+
+    function handleApplyDays(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, days, changed;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        days = Math.max(0, parseInt(args.days || 0, 10));
+        changed = 0;
+        _.each(employerState.jobs, function (j) {
+            if (j.status !== 'active') return;
+            j.elapsedDays += days;
+            if (j.elapsedDays >= j.actualDays) j.status = 'ready';
+            changed += 1;
+        });
+        send(box('Days Applied',
+            line('Employer', esc(employer.get('name'))) +
+            line('Days added', esc(days)) +
+            line('Active jobs updated', esc(changed)) +
+            btn('Status Report', '!smith-report --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+        ));
+    }
+
+    function handleCompleteJob(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, job, payResult, paidCp;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        job = _.find(employerState.jobs, function (j) { return j.id === args.job; }) || null;
+        if (!job) {
+            send(box('Pick Up Job', '<div>Job not found.</div>' + btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)));
+            return;
+        }
+        if (job.elapsedDays < job.actualDays) job.elapsedDays = job.actualDays;
+        paidCp = job.balanceDueCp || 0;
+        if (job.balanceDueCp > 0) {
+            payResult = payCostOrReport(employer, job.balanceDueCp);
+            if (!payResult.ok) {
+                job.status = 'ready';
+                send(box('Pick Up Job',
+                    line('Employer', esc(employer.get('name'))) +
+                    line('Job', esc(job.description)) +
+                    line('Balance due', esc(formatCp(job.balanceDueCp))) +
+                    line('On hand', esc(formatCp(payResult.onHand))) +
+                    '<div>Not enough coin on the PC sheet to pay the balance and pick up the order.</div>' +
+                    btn('Status Report', '!smith-report --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+                    btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+                ));
+                return;
+            }
+        }
+        job.status = 'complete';
+        job.balanceDueCp = 0;
+        employerState.jobs = _.filter(employerState.jobs, function (j) { return j.id !== job.id; });
+        send(box('Job Picked Up',
+            line('Employer', esc(employer.get('name'))) +
+            line('Job', esc(job.description)) +
+            line('Blacksmith', esc(job.craftsmanName)) +
+            line('Balance paid', esc(formatCp(paidCp))) +
+            '<div>The completed job was removed from the active jobs list.</div>' +
+            btn('Status Report', '!smith-report --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110)
+        ));
+    }
+
+    function handleReport(msg, args) {
+        var employer = requireEmployer(msg, args);
+        var employerState, craftsmenHtml, jobsHtml, quotesHtml, body, days;
+        if (!employer) return;
+        employerState = getEmployerState(employer.id);
+        days = Math.max(0, parseInt(args.days || 0, 10));
+        if (days > 0) {
+            _.each(employerState.jobs, function (j) {
+                if (j.status !== 'active') return;
+                j.elapsedDays += days;
+                if (j.elapsedDays >= j.actualDays) j.status = 'ready';
+            });
+        }
+        if (employerState.craftsmen.length) {
+            craftsmenHtml = '<ul style="margin:6px 0 6px 18px;">' + _.map(employerState.craftsmen, function (c) {
+                return '<li><b>' + esc(c.name) + '</b> - ' + esc(c.race) + ' - ' + esc(c.skillLabel) + ' (' + esc(c.skillAdjusted) + ') - efficiency ' + esc(c.efficiency) + 'x</li>';
+            }).join('') + '</ul>';
+        } else {
+            craftsmenHtml = '<div>No blacksmiths recorded.</div>';
+        }
+
+        employerState.jobs = _.filter(employerState.jobs, function (j) {
+            return !(j && j.status === 'complete' && toNumber(j.balanceDueCp, 0) <= 0);
+        });
+        jobsHtml = employerState.jobs.length ? '<ul style="margin:6px 0 6px 18px;">' + _.map(employerState.jobs, function (j) {
+            var remaining = Math.max(0, j.actualDays - j.elapsedDays);
+            var buttonLabel = j.status === 'ready' ? 'Pick Up' : 'Finish/Pick Up';
+            return '<li><b>' + esc(j.description) + '</b> - ' + esc(j.craftsmanName) + ' - ' + esc(j.status) +
+                ' - elapsed ' + esc(j.elapsedDays) + '/' + esc(j.actualDays) + ' days - remaining ' + esc(remaining) + ' day(s)' +
+                ' - total ' + esc(formatCp(j.finalCostCp)) +
+                ' - down ' + esc(formatCp(j.upfrontPaidCp || 0)) +
+                ' - balance ' + esc(formatCp(j.balanceDueCp || 0)) +
+                (j.status !== 'complete' ? ' ' + btn(buttonLabel, '!smith-complete-job --pc|' + employer.id + ' --job|' + j.id, CONFIG.colors.warnBg, CONFIG.colors.warnBorder, 90) : '') +
+                '<div style="color:' + CONFIG.colors.subtext + ';margin:4px 0 8px 0;">' + esc(j.notes || '') + '</div></li>';
+        }).join('') + '</ul>' : '<div>No jobs recorded.</div>';
+
+        quotesHtml = employerState.quotes.length ? '<ul style="margin:6px 0 6px 18px;">' + _.map(employerState.quotes, function (q) {
+            return '<li><b>' + esc(q.description) + '</b> - ' + esc(q.craftsmanName) + ' - quote ' + esc(formatCp(q.currentQuoteCp)) + ' - down ' + esc(formatCp(q.depositCp || Math.ceil(q.currentQuoteCp / 2))) + ' - ' + esc(q.actualDays) + ' day(s)' +
+                ' ' + btn('Open', '!smith-quotes --pc|' + employer.id, CONFIG.colors.warnBg, CONFIG.colors.warnBorder, 70) +
+                '</li>';
+        }).join('') + '</ul>' : '<div>No open quotes.</div>';
+
+        body = line('Employer', esc(employer.get('name'))) +
+            line('Treasury on sheet', esc(formatCp(getTreasuryCp(employer)))) +
+            line('Reaction bonus', esc(String(getAttr(employer.id, CONFIG.reactionAttr, 0)) + '%')) +
+            (days > 0 ? line('Days applied this check', esc(days)) : '') +
+            sectionHeader('Blacksmiths') + craftsmenHtml +
+            sectionHeader('Open Quotes') + quotesHtml +
+            sectionHeader('Jobs') + jobsHtml +
+            btn('Apply Days', '!smith-apply-days --pc|' + employer.id + ' --days|?{Days passed|1}', CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+            btn('Status Report', '!smith-report --pc|' + employer.id + ' --days|?{Days passed since last check|0}', CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110) +
+            btn('Main Menu', '!smith-menu --pc|' + employer.id, CONFIG.colors.reportBg, CONFIG.colors.reportBorder, 110);
+        send(box('Blacksmith Report', body));
+    }
+
+    function handleHelp() {
+        send(box('Blacksmith Help',
+            line('Main menu', '<code>!smith-menu</code>') +
+            line('Add blacksmith', '<code>!smith-add-blacksmith --pc|CHAR_ID --name|Name --race|human</code>') +
+            line('Remove blacksmith menu', '<code>!smith-remove-blacksmith-menu --pc|CHAR_ID</code>') +
+            line('Remove blacksmith', '<code>!smith-remove-blacksmith --pc|CHAR_ID --smith|CRAFT_ID</code>') +
+            line('Remove all smiths', '<code>!smith-remove-all --pc|CHAR_ID --confirm|yes</code>') +
+            line('Deny quote', '<code>!smith-deny-quote --pc|CHAR_ID --quote|QUOTE_ID</code>') +
+            line('Reset campaign', '<code>!smith-reset --confirm|yes</code> (GM only)') +
+            line('Quote menu', '<code>!smith-quote-menu --pc|CHAR_ID --smith|CRAFT_ID</code>') +
+            line('Report', '<code>!smith-report --pc|CHAR_ID</code>') +
+            '<div style="margin-top:8px;color:' + CONFIG.colors.subtext + ';">Uses the PC attribute <b>' + esc(CONFIG.reactionAttr) + '</b> for price adjustment and haggling attempts. Starting prices come from the equipment table, then random variance, reaction adjustment, and helper/material costs are applied. Monthly wages are not charged here; this script only quotes and deducts job costs.</div>'
+        ));
+    }
+
+    function handleInput(msg) {
+        var cmd, args;
+        if (msg.type !== 'api' || !msg.content || msg.content.indexOf('!smith') !== 0) return;
+        cmd = msg.content.split(/\s+/)[0];
+        args = parseArgs(msg.content);
+
+        switch (cmd) {
+            case '!smith-menu': handleMenu(msg, args); break;
+            case '!smith-help': handleHelp(); break;
+            case '!smith-add-blacksmith': handleAddBlacksmith(msg, args); break;
+            case '!smith-quote-start': handleQuoteStart(msg, args); break;
+            case '!smith-quote-town': handleQuoteTown(msg, args); break;
+            case '!smith-price-list': handlePriceList(msg, args); break;
+            case '!smith-quote-menu': handleQuoteMenu(msg, args); break;
+            case '!smith-quote-standard': handleQuoteStandard(msg, args); break;
+            case '!smith-custom-quote': handleCustomQuote(msg, args); break;
+            case '!smith-counteroffer': handleCounteroffer(msg, args); break;
+            case '!smith-accept-quote': handleAcceptQuote(msg, args); break;
+            case '!smith-deny-quote': handleDenyQuote(msg, args); break;
+            case '!smith-remove-blacksmith-menu': handleRemoveBlacksmithMenu(msg, args); break;
+            case '!smith-remove-blacksmith': handleRemoveBlacksmith(msg, args); break;
+            case '!smith-remove-all': handleRemoveAll(msg, args); break;
+            case '!smith-reset': handleReset(msg, args); break;
+            case '!smith-quotes': handleQuotes(msg, args); break;
+            case '!smith-apply-days': handleApplyDays(msg, args); break;
+            case '!smith-report': handleReport(msg, args); break;
+            case '!smith-complete-job': handleCompleteJob(msg, args); break;
+            default: handleHelp(); break;
+        }
+    }
+
+    return {
+        CheckInstall: checkInstall,
+        RegisterEventHandlers: registerEventHandlers
+    };
+}());
+
+on('ready', function () {
+    'use strict';
+    StrongholdSmithy.CheckInstall();
+    StrongholdSmithy.RegisterEventHandlers();
+});
